@@ -87,9 +87,25 @@ def probabilistic_figure():
 
 def path_figure():
     samples, targets = read_global_samples()
-    path = path_metrics(samples.mean(axis=1), samples, targets)
-    path.update({"cross_sectional_corr_rmse": cross_sectional_corr_error(samples.mean(axis=1), targets)})
-    path = pd.DataFrame([{"model": "Hybrid-RSSM", **path}])
+    prediction_files = sorted(OUT.glob("block_*/predictions.csv.gz"))
+    frame = pd.concat([pd.read_csv(path) for path in prediction_files], ignore_index=True)
+    tickers = sorted(frame.ticker.unique())
+    origins = sorted(frame.origin_index.unique())
+    model_paths = {}
+    for model, group in frame.groupby("model", sort=False):
+        pivot = group.pivot_table(index=["origin_index", "horizon"], columns="ticker",
+                                  values="mean", aggfunc="first").reindex(
+                                      pd.MultiIndex.from_product([origins, range(1, 6)],
+                                                                  names=["origin_index", "horizon"]),
+                                      columns=tickers)
+        model_paths[model] = pivot.to_numpy().reshape(len(origins), 5, len(tickers))
+    model_paths["Hybrid-RSSM"] = samples.mean(axis=1)
+    records = []
+    for model, mean_paths in model_paths.items():
+        record = path_metrics(mean_paths, samples if model == "Hybrid-RSSM" else None, targets)
+        record.update({"model": model, "cross_sectional_corr_rmse": cross_sectional_corr_error(mean_paths, targets)})
+        records.append(record)
+    path = pd.DataFrame(records)
     metrics = [("mean_increment_corr", "Mean-path increment correlation"),
                ("increment_sd_ratio", "Mean-path increment SD ratio"),
                ("sample_increment_sd", "Sample-path increment SD"),
