@@ -13,3 +13,8 @@ paper/build/*.out
 paper/build/*.synctex.gz
 paper/build/*.xdv
 paper/render*/
+paper/final_render/
+data/**/*.zip
+kaggle_dataset/
+kaggle_kernel/empirical_runs/
+outputs/
