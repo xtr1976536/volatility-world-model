@@ -6,6 +6,8 @@ This directory contains the expanded English manuscript and the audited single-s
 
 - `main.tex`: expanded 15-page English manuscript, with approximately 13 pages of text and appendix material before references.
 - `build/main.pdf`: locally compiled manuscript PDF.
+- Empirical figures are retained as reproducible artifacts for a later redraw;
+  they are intentionally excluded from the current manuscript PDF.
 
 ## Scope frozen in the draft
 

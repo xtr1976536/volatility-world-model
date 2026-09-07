@@ -1,10 +1,11 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,booktabs,hyperref,enumitem,microtype,algorithmic,longtable,array,graphicx}
+\usepackage{amsmath,amssymb,booktabs,hyperref,enumitem,microtype,algorithmic,longtable,array}
 \hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
-\graphicspath{{paper/figures/}{empirical_runs/world_model_v1/paper/figures/}}
 \title{Anchor-Conditioned Recurrent State-Space World Models for\\Probabilistic Multi-Asset Realized Volatility Paths}
-\author{Tongren Xiao\thanks{Corresponding author: \href{mailto:easyglider458@gmail.com}{easyglider458@gmail.com}} \and Shuhang Chen\\[2pt]\small Independent Research Collaborators\\\small Code: \href{https://github.com/xtr1976536/volatility-world-model}{github.com/xtr1976536/volatility-world-model}\\\small Shuhang Chen: \href{mailto:chenshuhang491@gmail.com}{chenshuhang491@gmail.com}}
+\author{Tongren Xiao \quad and \quad Shuhang Chen\\[3pt]
+\small \texttt{easyglider458@gmail.com} \quad \texttt{chenshuhang491@gmail.com}\\[-1pt]
+\small Code: \href{https://github.com/xtr1976536/volatility-world-model}{github.com/xtr1976536/volatility-world-model}}
 \date{September 2026}
 \newcommand{\RV}{\mathrm{RV}}\newcommand{\IV}{\mathrm{IV}}\newcommand{\cF}{\mathcal F}\newcommand{\R}{\mathbb R}
 \begin{document}\maketitle
@@ -112,8 +113,6 @@ The default values are $\lambda_K=0.25$, $\lambda_C=0.05$, $\lambda_B=0.05$, fre
 \subsection{Data and protocol}
 The panel contains 30 Dow30 assets and 1,254 common dates. Forecast origins are 1113--1248, divided into seven sequential blocks. Each block independently fits its standardizer, anchor, and AC-RSSM. The formal local run uses seed 20260721, 600 optimization steps per block, 500 prior-only paths per origin, CPU execution with two PyTorch threads, and no concurrent training. The loader records upstream missing counts and forward-only runtime filling; the source files labelled \texttt{filled} remain a provenance limitation.
 
-Figures~\ref{fig:qlike}, \ref{fig:prob}, \ref{fig:path}, \ref{fig:train}, and~\ref{fig:extreme} summarize the forecast distribution using the same origin-level keys as the tables.
-
 \begin{table}[h]\centering\caption{Data and protocol summary.}\begin{tabular}{ll}\toprule Asset universe & Dow30, 30 assets\\ Common dates & 1,254\\ Forecast origins & 1113--1248, 136 origins\\ Context/horizon & 44 / 5 trading days\\ Rolling blocks & 7 sequential blocks\\ Steps and paths & 600 / 500\\ Seed and CPU & 20260721 / 2 threads\\\bottomrule\end{tabular}\end{table}
 
 \subsection{Benchmark hierarchy}
@@ -123,50 +122,15 @@ The benchmark ladder begins with Naive and HAR, adds IV through HAR-IV, and adds
 Table~\ref{tab:loss} reports the complete fixed-seed summary. AC-RSSM has the lowest QLIKE among included models at every horizon. Relative to HAR-IV, the reduction is 50.6\% at $h=1$ and 22.6\% at $h=5$. The monotonic reduction is consistent with the anchor absorbing more low-frequency level information at longer horizons.
 \begin{table}[h]\centering\caption{Single-seed Dow30 point losses.}\label{tab:loss}\small\begin{tabular}{lrrrrrr}\toprule Model & MSE$_1$ & QLIKE$_1$ & MSE$_5$ & QLIKE$_5$ & MAE$_1$ & MAE$_5$\\\midrule Naive & 1.3884 & .001424 & 5.2715 & .005248 & .7293 & 1.5790\\ HAR & 1.3435 & .001386 & 4.9249 & .004887 & .7316 & 1.5652\\ HAR-IV & 1.3093 & .001369 & 4.5867 & .004642 & .7703 & 1.5721\\ GHAR (legacy) & 1.3741 & .001421 & 5.1648 & .005167 & .7503 & 1.6081\\ GHAR-IV (legacy) & 1.3176 & .001383 & 4.6783 & .004763 & .7756 & 1.5952\\ AC-RSSM & .6501 & .000676 & 3.5204 & .003590 & .5120 & 1.3367\\\bottomrule\end{tabular}\end{table}
 
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.98\linewidth]{fig1_qlike_by_horizon.pdf}
-\caption{Out-of-sample QLIKE by forecast horizon. Each point averages the 136 forecast origins and 30 assets for the indicated horizon.}
-\label{fig:qlike}
-\end{figure}
-
 \begin{table}[h]\centering\caption{AC-RSSM QLIKE relative to HAR-IV.}\begin{tabular}{rrrr}\toprule Horizon & HAR-IV & AC-RSSM & Reduction (\%)\\\midrule 1 & .001369 & .000676 & 50.6\\ 2 & .002180 & .001365 & 37.4\\ 3 & .002973 & .002115 & 28.9\\ 4 & .003815 & .002821 & 26.1\\ 5 & .004642 & .003590 & 22.6\\\bottomrule\end{tabular}\end{table}
 
 \subsection{Marginal probabilistic diagnostics}
 Across 136 origins, 90\% coverage is 0.948 at $h=1$ and 0.937 at $h=5$. Fifty-percent coverage decreases from 0.714 to 0.620. PIT means lie between 0.469 and 0.482, and PIT variances between 0.051 and 0.063. The intervals are non-degenerate and approximately centered; sharpness is assessed jointly with CRPS and interval width.
 \begin{table}[h]\centering\caption{AC-RSSM marginal diagnostics.}\begin{tabular}{rrrrrrrr}\toprule $h$ & CRPS & Cov$_{90}$ & Cov$_{50}$ & Width$_{90}$ & Winkler$_{90}$ & PIT mean & PIT var\\\midrule 1 & .4010 & .9475 & .7137 & 3.0211 & 3.8832 & .4797 & .0511\\ 2 & .5829 & .9390 & .6801 & 4.2273 & 5.3333 & .4819 & .0558\\ 3 & .7345 & .9355 & .6510 & 5.2047 & 6.4583 & .4732 & .0595\\ 4 & .8589 & .9365 & .6414 & 6.0698 & 7.3796 & .4705 & .0605\\ 5 & .9760 & .9370 & .6203 & 6.8290 & 8.2239 & .4693 & .0627\\\bottomrule\end{tabular}\end{table}
 
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.98\linewidth]{fig2_probabilistic_diagnostics.pdf}
-\caption{AC-RSSM marginal diagnostics by horizon. Dashed lines mark nominal coverage levels.}
-\label{fig:prob}
-\end{figure}
-
 \subsection{Temporal and joint paths}
 The mean-path increment standard-deviation ratio is 0.320, so the deterministic mean is smoother than the realized path. Sampled increment standard deviation is 2.516 versus 0.799 for the target. The sample increment correlation is 0.197, the sample increment lag correlation is -0.493, and cross-sectional correlation RMSE is 0.931. The realized common-extreme-event rate is 0.103, the average model-implied probability is 0.129, and the Brier score is 0.064. These results are informative precisely because they qualify the point-loss improvement: the current model has not solved joint path realism.
 \begin{table}[h]\centering\caption{Temporal and joint path diagnostics.}\begin{tabular}{lr}\toprule Metric & Value\\\midrule Mean-path increment correlation & .1966\\ Mean-path increment SD ratio & .3196\\ Sample-path increment SD & 2.5161\\ Sample increment correlation & .1966\\ Sample increment lag correlation & -.4931\\ Cross-sectional correlation RMSE & .9308\\ Common-extreme realized rate & .1029\\ Common-extreme predicted probability & .1290\\ Common-extreme Brier score & .0642\\\bottomrule\end{tabular}\end{table}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.98\linewidth]{fig3_path_diagnostics.pdf}
-\caption{Temporal and cross-sectional path diagnostics.}
-\label{fig:path}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.98\linewidth]{fig4_training_diagnostics.pdf}
-\caption{End-of-block training diagnostics from the saved optimization histories.}
-\label{fig:train}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.78\linewidth]{fig5_common_extreme_events.pdf}
-\caption{Common high-volatility event rates. The threshold is the 90th percentile of realized cross-sectional mean RV.}
-\label{fig:extreme}
-\end{figure}
 
 \section{Discussion and Failure Analysis}
 \subsection{Why the stand-alone RSSM was insufficient}
