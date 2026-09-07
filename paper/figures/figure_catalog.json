@@ -1,0 +1,32 @@
+{
+  "fig1_qlike_by_horizon": {
+    "surface": "paper_main",
+    "source": "outputs/dow30_serial/seed_20260721/summary.csv",
+    "generator": "paper/figures/plot_empirical_figures.py",
+    "claim": "AC-RSSM QLIKE relative to the included level and cross-sectional benchmarks across horizons."
+  },
+  "fig2_probabilistic_diagnostics": {
+    "surface": "paper_main",
+    "source": "outputs/dow30_serial/seed_20260721/block_*/diagnostics.csv",
+    "generator": "paper/figures/plot_empirical_figures.py",
+    "claim": "Marginal CRPS, nominal coverage, and interval width as the rollout horizon increases."
+  },
+  "fig3_path_diagnostics": {
+    "surface": "paper_main",
+    "source": "outputs/dow30_serial/seed_20260721/block_*/diagnostics.csv",
+    "generator": "paper/figures/plot_empirical_figures.py",
+    "claim": "Temporal increment behavior and cross-sectional correlation error."
+  },
+  "fig4_training_diagnostics": {
+    "surface": "paper_main",
+    "source": "outputs/dow30_serial/seed_20260721/block_*/block_00/training_history.json",
+    "generator": "paper/figures/plot_empirical_figures.py",
+    "claim": "End-of-block prior rollout, latent gap, and gate diagnostics."
+  },
+  "fig5_common_extreme_events": {
+    "surface": "paper_main",
+    "source": "outputs/dow30_serial/seed_20260721/block_*/block_00/samples.npz",
+    "generator": "paper/figures/plot_empirical_figures.py",
+    "claim": "Realized versus model-implied rates of common high-volatility events."
+  }
+}

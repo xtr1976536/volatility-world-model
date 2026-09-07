@@ -1,0 +1,64 @@
+{
+  "status": "pass",
+  "seed": 20260721,
+  "blocks": 7,
+  "origins": 136,
+  "assets": 30,
+  "rows": 122400,
+  "models": [
+    "GHAR",
+    "GHAR-IV",
+    "HAR",
+    "HAR-IV",
+    "Hybrid-RSSM",
+    "Naive"
+  ],
+  "horizons": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "prediction_finite": true,
+  "unique_keys": true,
+  "target_after_origin": true,
+  "block_statuses": [
+    {
+      "block": "block_00",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_01",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_02",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_03",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_04",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_05",
+      "status": "complete",
+      "rows": 19800
+    },
+    {
+      "block": "block_06",
+      "status": "complete",
+      "rows": 3600
+    }
+  ],
+  "summary_rows": 30
+}

@@ -1,0 +1,13 @@
+{
+  "id": "xiaotongrenkk/anchor-conditioned-volatility-world-model-dow30",
+  "title": "Anchor Conditioned Volatility World Model Dow30",
+  "code_file": "run_dow30.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": ["xiaotongrenkk/volatility-world-model-dow30-code"],
+  "competition_sources": [],
+  "kernel_sources": []
+}

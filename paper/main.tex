@@ -1,0 +1,365 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,hyperref,enumitem,microtype,algorithmic,longtable,array,graphicx}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
+\graphicspath{{paper/figures/}{empirical_runs/world_model_v1/paper/figures/}}
+\title{Anchor-Conditioned Recurrent State-Space World Models for\\Probabilistic Multi-Asset Realized Volatility Paths}
+\author{Tongren Xiao\thanks{Corresponding author: \href{mailto:easyglider458@gmail.com}{easyglider458@gmail.com}} \and Shuhang Chen\\[2pt]\small Independent Research Collaborators\\\small Code: \href{https://github.com/xtr1976536/volatility-world-model}{github.com/xtr1976536/volatility-world-model}\\\small Shuhang Chen: \href{mailto:chenshuhang491@gmail.com}{chenshuhang491@gmail.com}}
+\date{September 2026}
+\newcommand{\RV}{\mathrm{RV}}\newcommand{\IV}{\mathrm{IV}}\newcommand{\cF}{\mathcal F}\newcommand{\R}{\mathbb R}
+\begin{document}\maketitle
+\begin{abstract}
+We formulate multi-asset realized-volatility forecasting as a passive probabilistic world-model problem. At an origin $t$, the model uses only $\cF_t$ to generate a joint distribution for the next five daily volatility vectors. The model must learn a deployable latent transition, preserve short-run path dependence, and represent common uncertainty across assets. We propose an anchor-conditioned recurrent state-space model (AC-RSSM). A causal level forecaster supplies an anchor; in the present experiment the anchor is HAR-IV. A market-shared and asset-specific recurrent state models the anchor-relative innovation. A two-dimensional public-shock layer and asset-specific Gaussian noise define a low-rank conditional covariance. The deployed model uses prior-only imagination, while posterior updates are restricted to training. On the audited Dow30 run, AC-RSSM has lower QLIKE than HAR-IV at all five horizons, with relative reductions from 50.6\% at one day to 22.6\% at five days. The same run yields near-nominal 90\% marginal coverage, excessive sampled increment dispersion, and substantial cross-sectional correlation error. The results identify a hybrid point-forecast gain and a remaining joint-path problem.
+\end{abstract}
+
+\section{Introduction}
+Volatility forecasting is central to financial econometrics. Forecasts enter risk limits, option valuation, capital allocation, portfolio construction, and stress testing. High-frequency prices permit realized measures that summarize intraday variation more directly than daily squared returns. If $r_{i,t}(\ell)$ is the $\ell$th intraday log return for asset $i$ on day $t$, realized variance is $\RV_{i,t}=\sum_{\ell=1}^{M}r_{i,t}(\ell)^2$. We work with positive RV observations and use their logarithms in the neural model; the target is an observed volatility proxy, not an unobserved instantaneous variance.
+
+The heterogeneous autoregressive (HAR) model remains a natural benchmark because it represents daily, weekly, and monthly persistence with a small number of regressors \cite{corsi2009}. Implied volatility (IV) adds a forward-looking option-market signal \cite{christensen1998}. Multivariate extensions use commonality, spillover, or graph structure across assets \cite{zhangcommon2024,zhang2025}. Zhang, Pu, Cucuringu, and Dong (2025) study GHAR and GNNHAR models in which cross-asset information is aggregated through a financial graph, and show that the estimation criterion can change the forecast ranking.
+
+These models primarily target a conditional mean. A probabilistic world model should represent a latent state, specify a transition that can be advanced without future observations, and generate a conditional distribution of future observations. In our passive setting the market is not affected by the model, so there are no actions, rewards, or policy. The target is
+\begin{equation}p(\mathbf v_{t+1:t+H}\mid\cF_t),\quad \mathbf v_t=(v_{1,t},\ldots,v_{N,t})^\top,\quad H=5.\end{equation}
+
+The identification problem is that a recurrent network can relearn predictable persistence during training while its prior produces smooth or poorly calibrated paths. Increasing noise can widen intervals without recovering shock timing or cross-asset dependence. We therefore separate level from innovation and evaluate point loss, marginal calibration, temporal path behavior, and joint structure relative to the same causal HAR-IV information set.
+
+The paper makes two contributions. First, a generic causal level anchor absorbs predictable persistence while a recurrent state-space model learns anchor-relative innovation. Second, a low-rank public-shock observation law makes cross-asset uncertainty explicit without estimating a full covariance matrix. The estimand is a passive forecasting distribution; trading decisions and causal spillover identification are outside its scope.
+
+Section 2 reviews volatility forecasting, probabilistic state-space models, world models, and financial scenario generation. Section 3 presents the methodology, Section 4 reports the Dow30 experiment, Section 5 interprets the hybrid result and its failure modes, Section 6 specifies robustness tests, and Section 7 concludes.
+
+\section{Preliminaries and Related Work}
+\subsection{Realized volatility and heterogeneous persistence}
+High-frequency sums of squared returns estimate integrated variance under standard semimartingale conditions, but market microstructure noise, jumps, and asynchronous trading complicate measurement. The present project uses an aligned daily panel and treats its RV values as the forecast target. The model does not reconstruct intraday prices.
+
+Define daily, weekly, and monthly components
+\begin{align} \overline{\mathbf v}_{t-1}^{(d)}&=\mathbf v_{t-1},\\ \overline{\mathbf v}_{t-1}^{(w)}&=\frac14\sum_{k=2}^{5}\mathbf v_{t-k},\\ \overline{\mathbf v}_{t-1}^{(m)}&=\frac1{17}\sum_{k=6}^{22}\mathbf v_{t-k}. \end{align}
+The direct $h$-step HAR forecast is
+\begin{equation}\widehat{\mathbf v}_{t+h}=\boldsymbol\alpha_h+\beta_{d,h}\overline{\mathbf v}_{t-1}^{(d)}+\beta_{w,h}\overline{\mathbf v}_{t-1}^{(w)}+\beta_{m,h}\overline{\mathbf v}_{t-1}^{(m)}.\end{equation}
+Separate direct regressions prevent predicted values from being fed back into regressors for later horizons. HAR-IV adds $\mathbf{IV}_{t-1}$. IV coefficients are predictive, not causal.
+
+\subsection{Cross-sectional and graph models}
+Let $G=(V,E)$ have adjacency $A$, degree matrix $D_A$, and normalized adjacency $W=D_A^{-1/2}AD_A^{-1/2}$. A graph HAR specification adds $W$-aggregated daily, weekly, and monthly components:
+\begin{align}\widehat{\mathbf v}_{t+h}={}&\boldsymbol\alpha_h+\beta_{d,h}\mathbf v_{t-1}+\beta_{w,h}\overline{\mathbf v}_{t-1}^{(w)}+\beta_{m,h}\overline{\mathbf v}_{t-1}^{(m)}\\&+\gamma_{d,h}W\mathbf v_{t-1}+\gamma_{w,h}W\overline{\mathbf v}_{t-1}^{(w)}+\gamma_{m,h}W\overline{\mathbf v}_{t-1}^{(m)}.\end{align}
+GHAR-IV adds lagged IV. Graph edges may be estimated from precision matrices, return connectedness, or other financial information. Predictive performance alone does not identify causal spillovers.
+
+The legacy \texttt{GHAR} and \texttt{GHAR-IV} labels in the current output files are lightweight cross-sectional-summary models: they add the cross-sectional mean and standard deviation of lagged RV, with IV included for GHAR-IV. They are not presented as a reimplementation of graph-adjacency GHAR. A graph-estimated benchmark is reserved for a later experimental pass.
+
+\subsection{Forecast losses and probabilistic evaluation}
+For $y>0$ and positive forecast $p$, QLIKE is
+\begin{equation}\operatorname{QLIKE}(y,p)=y/p-\log(y/p)-1.\end{equation}
+We report MSE, QLIKE, and MAE. For samples we report CRPS, interval coverage and width, Winkler score, rank-PIT moments, increment statistics, cross-sectional correlation error, and a Brier score for common high-volatility events. Date-aggregated QLIKE differentials provide a descriptive DM comparison; no causal interpretation is attached.
+
+\subsection{Probabilistic state-space models and world models}
+Classical state-space models specify latent transitions and observation equations. Probabilistic recurrent state-space models extend this structure with neural transitions and inference networks, but posterior reconstruction can diverge from prior prediction \cite{doerr2018}. Deep Factors combine global neural representations with local probabilistic components for related series \cite{wang2019}, and DeepAR demonstrates scalable probabilistic autoregression \cite{salinas2020}. These methods motivate the present hybrid structure but do not by themselves define a world model.
+
+The world-model literature makes prior imagination operational. World Models learn compressed spatial and temporal representations \cite{ha2018}; PlaNet and Dreamer use recurrent state-space models to imagine future latent trajectories \cite{planet2019,hafner2019}; DreamerV3 stabilizes latent imagination across domains \cite{hafner2025}. These models generally contain actions, rewards, and interactive environments. Our financial setting removes those components and transfers only the requirement that a learned prior be deployable without future observations.
+
+Financial work has developed parallel approaches to scenario generation and risk simulation. Stochastic-volatility and dynamic-factor models provide interpretable latent dynamics. Quant GANs and Tail-GAN target synthetic return or risk-factor scenarios, with emphasis on distributional and tail properties \cite{wiese2020,cont2025}. Recent latent-state volatility work, including Deep-LSTR, combines inferred states with HAR-type transitions \cite{lim2026}. Our contribution is narrower: a passive RV environment model with an explicit anchor, prior-only rollout, and low-rank joint observation law.
+
+\section{Proposed Methodology}
+\subsection{Generic anchor-conditioned formulation}
+Let $A_{\eta,h}$ be any causal positive level forecaster:
+\begin{equation}a_{i,t,h}=A_{\eta,h}(\cF_t)_i>0.\end{equation}
+The current implementation sets $A_\eta=\text{HAR-IV}$. Substituting another anchor requires refitting the anchor, regenerating residual targets, retraining the RSSM, and repeating the complete protocol.
+
+The code exposes two methods through the \texttt{AnchorForecaster} interface:
+\begin{quote}\small
+\texttt{fit(panel, train\_end, horizon)}\\
+\texttt{predict(panel, origin)}
+\end{quote}
+\texttt{HarIvAnchor} is the default implementation. The block-anchor builder accepts an anchor object while retaining backward-compatible default behavior.
+
+\subsection{Observed features and standardization}
+The feature vector is
+\begin{equation}o_{i,t}=(\widetilde{\log v}_{i,t},\widetilde{\log IV}_{i,t},\widetilde r_{i,t})\in\R^3.\end{equation}
+The context tensor has shape $[B,L,N,3]$, with $L=44$ and $N=30$. RV and IV are floored at $10^{-8}$ before logarithms; returns are clipped to $[-0.25,0.25]$. Means and scales are fitted before the rolling-block boundary. Runtime filling is forward-only; backward filling is prohibited.
+
+The market summary is exactly six-dimensional:
+\begin{equation}\phi_m(o_t)=\left(\operatorname{mean}_i o_{i,t},\operatorname{std}_i o_{i,t}\right)\in\R^6,\end{equation}
+using population standard deviation. This summary is not a graph and does not identify pairwise edges.
+
+\subsection{Market and asset latent states}
+Let $(h_t^m,z_t^m)$ be market deterministic and stochastic states and $(h_{i,t}^a,z_{i,t}^a)$ asset states. With asset embedding $e_i$,
+\begin{align}h_t^m&=\operatorname{GRU}_m([z_{t-1}^m,\phi_m(o_t)],h_{t-1}^m),&z_t^m&\sim q_m(z_t^m\mid h_t^m,o_t),\\h_{i,t}^a&=\operatorname{GRU}_a([z_{i,t-1}^a,o_{i,t},e_i,h_t^m],h_{i,t-1}^a),&z_{i,t}^a&\sim q_a(z_{i,t}^a\mid h_{i,t}^a,o_{i,t},h_t^m).
+\end{align}
+The market state is shared; asset states use shared transition weights and asset-specific embeddings.
+
+At deployment, unavailable future observations are replaced by zero inputs:
+\begin{align}h_{t+1}^m&=\operatorname{GRU}_m([z_t^m,\mathbf0_6],h_t^m),\\h_{i,t+1}^a&=\operatorname{GRU}_a([z_{i,t}^a,\mathbf0_3,e_i,h_{t+1}^m],h_{i,t}^a).
+\end{align}
+The prior distributions then sample $z_{t+1}^m$ and $z_{i,t+1}^a$. The zero input is a deployment convention, not a statement that future observations equal zero.
+
+\subsection{Innovation gate and joint observation}
+For transitioned state feature $s_{i,t,h}$,
+\begin{align}g_{t,h}&=\operatorname{sigmoid}(f_g(h_{t,h}^m,z_{t,h}^m)),\\\mu^r_{i,t,h}&=g_{t,h}f_\mu(s_{i,t,h}),\\\sigma^r_{i,t,h}&=\operatorname{softplus}(f_\sigma(s_{i,t,h}))+\sigma_{\min}.
+\end{align}
+The gate multiplies the residual mean only. It is not a mixture weight or volatility scale.
+
+The residual vector follows
+\begin{equation}\mathbf r_{t,h}=\boldsymbol\mu^r_{t,h}+B_{t,h}f_{t,h}+D_{t,h}\boldsymbol\epsilon_{t,h},\end{equation}
+where $f_{t,h}\sim\mathcal N(0,I_q)$ is shared across assets, $\boldsymbol\epsilon_{t,h}\sim\mathcal N(0,I_N)$ is idiosyncratic, $B_{t,h}\in\R^{N\times q}$, $D_{t,h}=\operatorname{diag}(\sigma^r_{1,t,h},\ldots,\sigma^r_{N,t,h})$, and $q=2$. The loading decoder applies $0.5\tanh(\cdot)$. Public factors are resampled independently across forecast steps in the current implementation; no temporal public-factor transition is claimed. The conditional covariance is
+\begin{equation}\Sigma_{t,h}=B_{t,h}B_{t,h}^{\top}+D_{t,h}^2.
+\end{equation}
+
+\subsection{Likelihood and optimization}
+For $\Sigma=BB^\top+D^2$,
+\begin{equation}\ell_{\mathrm{LR}}(r)=\frac12[(r-\mu)^\top\Sigma^{-1}(r-\mu)+\log|\Sigma|+N\log(2\pi)].\end{equation}
+The code uses the Woodbury identity and matrix determinant lemma, solving a $q\times q$ system instead of inverting a dense $N\times N$ matrix. The objective is
+\begin{equation}\mathcal L=\mathcal L_{\mathrm{prior}}+\lambda_T\mathcal L_{\mathrm{teacher}}+\lambda_K\mathcal L_{\mathrm{KL}}+\lambda_C\mathcal L_{\mathrm{cons}}+\lambda_B\|B\|_F^2.
+\end{equation}
+The default values are $\lambda_K=0.25$, $\lambda_C=0.05$, $\lambda_B=0.05$, free nats $=1.0$, and discount $\gamma=0.9$. AdamW uses learning rate $3\times10^{-4}$, weight decay $10^{-5}$, and gradient clipping at 100. The model dimensions are $(96,24)$ for market deterministic/stochastic state, $(96,24)$ for asset deterministic/stochastic state, embedding dimension 24, and hidden dimension 128.
+
+\section{Empirical Analysis}
+\subsection{Data and protocol}
+The panel contains 30 Dow30 assets and 1,254 common dates. Forecast origins are 1113--1248, divided into seven sequential blocks. Each block independently fits its standardizer, anchor, and AC-RSSM. The formal local run uses seed 20260721, 600 optimization steps per block, 500 prior-only paths per origin, CPU execution with two PyTorch threads, and no concurrent training. The loader records upstream missing counts and forward-only runtime filling; the source files labelled \texttt{filled} remain a provenance limitation.
+
+Figures~\ref{fig:qlike}, \ref{fig:prob}, \ref{fig:path}, \ref{fig:train}, and~\ref{fig:extreme} summarize the forecast distribution using the same origin-level keys as the tables.
+
+\begin{table}[h]\centering\caption{Data and protocol summary.}\begin{tabular}{ll}\toprule Asset universe & Dow30, 30 assets\\ Common dates & 1,254\\ Forecast origins & 1113--1248, 136 origins\\ Context/horizon & 44 / 5 trading days\\ Rolling blocks & 7 sequential blocks\\ Steps and paths & 600 / 500\\ Seed and CPU & 20260721 / 2 threads\\\bottomrule\end{tabular}\end{table}
+
+\subsection{Benchmark hierarchy}
+The benchmark ladder begins with Naive and HAR, adds IV through HAR-IV, and adds cross-sectional summaries through the legacy GHAR/GHAR-IV outputs. The primary scientific comparison is AC-RSSM versus HAR-IV because HAR-IV is the default level anchor. The graph-adjacency GHAR family is defined in Section 2; the current output uses cross-sectional-summary variants.
+
+\subsection{Point forecast losses}
+Table~\ref{tab:loss} reports the complete fixed-seed summary. AC-RSSM has the lowest QLIKE among included models at every horizon. Relative to HAR-IV, the reduction is 50.6\% at $h=1$ and 22.6\% at $h=5$. The monotonic reduction is consistent with the anchor absorbing more low-frequency level information at longer horizons.
+\begin{table}[h]\centering\caption{Single-seed Dow30 point losses.}\label{tab:loss}\small\begin{tabular}{lrrrrrr}\toprule Model & MSE$_1$ & QLIKE$_1$ & MSE$_5$ & QLIKE$_5$ & MAE$_1$ & MAE$_5$\\\midrule Naive & 1.3884 & .001424 & 5.2715 & .005248 & .7293 & 1.5790\\ HAR & 1.3435 & .001386 & 4.9249 & .004887 & .7316 & 1.5652\\ HAR-IV & 1.3093 & .001369 & 4.5867 & .004642 & .7703 & 1.5721\\ GHAR (legacy) & 1.3741 & .001421 & 5.1648 & .005167 & .7503 & 1.6081\\ GHAR-IV (legacy) & 1.3176 & .001383 & 4.6783 & .004763 & .7756 & 1.5952\\ AC-RSSM & .6501 & .000676 & 3.5204 & .003590 & .5120 & 1.3367\\\bottomrule\end{tabular}\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\linewidth]{fig1_qlike_by_horizon.pdf}
+\caption{Out-of-sample QLIKE by forecast horizon. Each point averages the 136 forecast origins and 30 assets for the indicated horizon.}
+\label{fig:qlike}
+\end{figure}
+
+\begin{table}[h]\centering\caption{AC-RSSM QLIKE relative to HAR-IV.}\begin{tabular}{rrrr}\toprule Horizon & HAR-IV & AC-RSSM & Reduction (\%)\\\midrule 1 & .001369 & .000676 & 50.6\\ 2 & .002180 & .001365 & 37.4\\ 3 & .002973 & .002115 & 28.9\\ 4 & .003815 & .002821 & 26.1\\ 5 & .004642 & .003590 & 22.6\\\bottomrule\end{tabular}\end{table}
+
+\subsection{Marginal probabilistic diagnostics}
+Across 136 origins, 90\% coverage is 0.948 at $h=1$ and 0.937 at $h=5$. Fifty-percent coverage decreases from 0.714 to 0.620. PIT means lie between 0.469 and 0.482, and PIT variances between 0.051 and 0.063. The intervals are non-degenerate and approximately centered; sharpness is assessed jointly with CRPS and interval width.
+\begin{table}[h]\centering\caption{AC-RSSM marginal diagnostics.}\begin{tabular}{rrrrrrrr}\toprule $h$ & CRPS & Cov$_{90}$ & Cov$_{50}$ & Width$_{90}$ & Winkler$_{90}$ & PIT mean & PIT var\\\midrule 1 & .4010 & .9475 & .7137 & 3.0211 & 3.8832 & .4797 & .0511\\ 2 & .5829 & .9390 & .6801 & 4.2273 & 5.3333 & .4819 & .0558\\ 3 & .7345 & .9355 & .6510 & 5.2047 & 6.4583 & .4732 & .0595\\ 4 & .8589 & .9365 & .6414 & 6.0698 & 7.3796 & .4705 & .0605\\ 5 & .9760 & .9370 & .6203 & 6.8290 & 8.2239 & .4693 & .0627\\\bottomrule\end{tabular}\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\linewidth]{fig2_probabilistic_diagnostics.pdf}
+\caption{AC-RSSM marginal diagnostics by horizon. Dashed lines mark nominal coverage levels.}
+\label{fig:prob}
+\end{figure}
+
+\subsection{Temporal and joint paths}
+The mean-path increment standard-deviation ratio is 0.320, so the deterministic mean is smoother than the realized path. Sampled increment standard deviation is 2.516 versus 0.799 for the target. The sample increment correlation is 0.197, the sample increment lag correlation is -0.493, and cross-sectional correlation RMSE is 0.931. The realized common-extreme-event rate is 0.103, the average model-implied probability is 0.129, and the Brier score is 0.064. These results are informative precisely because they qualify the point-loss improvement: the current model has not solved joint path realism.
+\begin{table}[h]\centering\caption{Temporal and joint path diagnostics.}\begin{tabular}{lr}\toprule Metric & Value\\\midrule Mean-path increment correlation & .1966\\ Mean-path increment SD ratio & .3196\\ Sample-path increment SD & 2.5161\\ Sample increment correlation & .1966\\ Sample increment lag correlation & -.4931\\ Cross-sectional correlation RMSE & .9308\\ Common-extreme realized rate & .1029\\ Common-extreme predicted probability & .1290\\ Common-extreme Brier score & .0642\\\bottomrule\end{tabular}\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\linewidth]{fig3_path_diagnostics.pdf}
+\caption{Temporal and cross-sectional path diagnostics.}
+\label{fig:path}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.98\linewidth]{fig4_training_diagnostics.pdf}
+\caption{End-of-block training diagnostics from the saved optimization histories.}
+\label{fig:train}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.78\linewidth]{fig5_common_extreme_events.pdf}
+\caption{Common high-volatility event rates. The threshold is the 90th percentile of realized cross-sectional mean RV.}
+\label{fig:extreme}
+\end{figure}
+
+\section{Discussion and Failure Analysis}
+\subsection{Why the stand-alone RSSM was insufficient}
+In earlier experiments, a direct RSSM was asked to learn persistent level, short-run shocks, cross-asset dependence, and uncertainty with one transition. Posterior reconstruction could improve while prior-only forecasts remained smooth. Increasing noise widened intervals without recovering shock timing. Shared latent states induced some dependence but did not provide an explicit covariance law. The model also spent capacity relearning persistence already captured by HAR.
+
+The anchor is therefore an identification device. It defines a causal level forecast under the same information set, and the RSSM receives credit only for residual information. This is closer to a hybrid of Deep Factors and a passive RSSM than to an autonomous financial simulator.
+
+\subsection{Interpretation of the current evidence}
+The lower QLIKE values are consistent with incremental predictive content after the HAR-IV level is removed. The reduction is largest at short horizons. The probabilistic diagnostics separate this point-forecast gain from path quality: 90\% intervals are near nominal, whereas sampled increments are too volatile and cross-sectional correlation error remains large. The public-shock layer is an estimable dependence mechanism; its contribution is identified by the public-shock ablation.
+
+The current evidence identifies a hybrid forecasting decomposition rather than a replacement for HAR-type level dynamics. A causal level model, residual latent dynamics, and joint uncertainty should be evaluated as separate components before any downstream risk decision is attached. Learning persistent levels, shocks, and calibrated joint scenarios directly from raw observations remains an open problem.
+
+This interpretation is consistent with financial scenario-generation research. A generator is useful only relative to a downstream object such as a portfolio loss, a tail functional, or a forecast distribution. Tail-oriented scenario models therefore evaluate generated paths through risk measures rather than visual similarity. Here the downstream object is the conditional distribution of future RV paths. The anchor specifies which part of that distribution is represented by a transparent financial benchmark and which part is assigned to latent dynamics.
+
+The comparison with latent-regime volatility models is also instructive. A regime-switching model estimates filtered probabilities over a small number of interpretable states. AC-RSSM uses continuous stochastic states and a learned prior transition. The former asks which discrete regime is active; the latter asks whether a continuous state can generate a deployable residual path after a level forecast has been removed. Combining these ideas is a natural extension, but discrete regime identification is outside the present scope.
+
+\section{Robustness and Ablation Design}
+The robustness design includes public-shock on/off; anchor on/off; market state off; asset state off; posterior-assisted versus prior-only rollout; independent versus low-rank observation noise; alternative causal anchors; and calm versus turbulent periods. These comparisons identify whether each component changes point loss, marginal calibration, or joint path structure. If public-shock removal leaves joint diagnostics unchanged, the dependence contribution is absent. If posterior-assisted paths outperform prior-only paths with a large posterior-prior gap, the transition is not deployable. Wider intervals without better CRPS, coverage, or joint-event scores indicate dispersion without calibration.
+
+The first robustness comparison is a public-shock-off run on the first rolling block. A graph-estimated GHAR/GHAR-IV benchmark is a separate comparison because the current legacy summary models use cross-sectional summaries rather than graph adjacency.
+
+\subsection{Planned robustness matrix}
+\begin{longtable}{p{0.25\linewidth}p{0.60\linewidth}}
+\caption{Planned experiments and pre-specified interpretation.}\\
+\toprule Experiment & Interpretation\\
+\midrule
+Public shock on/off & Whether low-rank public factors improve cross-sectional and common-event diagnostics beyond independent noise.\\
+Anchor on/off & Whether the latent model is learning incremental dynamics or simply reproducing the volatility level.\\
+Market state off & Whether the shared state contributes beyond asset-specific recurrence.\\
+Asset state off & Whether heterogeneous asset responses contribute beyond the market state.\\
+Posterior-assisted rollout & Size of the training/deployment gap; this is a diagnostic, not a valid deployed forecast.\\
+Alternative anchor & Whether the residual world-model contribution depends on HAR-IV specifically.\\
+Regime split & Whether gains concentrate in calm or turbulent market conditions.\\
+\bottomrule
+\end{longtable}
+
+Every robustness experiment preserves the same origin dates, targets, rolling boundaries, and audit keys. An ablation is comparable only when its information set and training sample are unchanged. Numerical results are reported only for completed runs.
+
+\section{Implementation Audit and Reproducibility Appendix}
+\subsection{Information-set audit}
+The local run is organized around seven block directories. At the beginning of a block with boundary $b$, the standardizer is fitted on dates before $b$, the anchor coefficients are fitted on dates before $b$, and training origins end before the block's test window. For a test origin $t$, the context ends at $t$. The evaluator then calls the model's imagination routine, which advances the prior with zero future-observation inputs. The target values are read only after the paths have been generated and are used for evaluation, never for the rollout.
+
+The output audit checks five contracts. First, every prediction key $(\text{origin},\text{ticker},\text{horizon},\text{model})$ is unique. Second, every target date is strictly later than its origin date. Third, all point predictions, targets, and quantiles are finite and non-negative. Fourth, quantiles are monotone. Fifth, every rolling block has a completed status and a saved manifest. The final seed-20260721 audit contains 136 origins, 30 assets, 122,400 prediction rows, five horizons, and seven completed blocks.
+
+\subsection{Tensor and state contracts}
+The training context has shape $[B,44,30,3]$ and the future tensor has shape $[B,5,30,3]$. The standardized anchor has shape $[B,5,30]$. The model returns a residual sample tensor of shape $[S,5,30]$, a gate tensor of shape $[S,5]$, and public loadings of shape $[S,5,30,2]$. The low-rank likelihood receives a target and mean of shape $[B,30]$, diagonal scale $[B,30]$, and loading matrix $[B,30,2]$.
+
+The implementation uses deterministic zero initialization for the recurrent states at the beginning of each context. During context encoding, stochastic posterior states are sampled unless deterministic encoding is explicitly requested. During evaluation, the context state is encoded deterministically before being expanded to the Monte Carlo sample dimension; randomness then enters through prior transitions, public factors, and idiosyncratic noises. This distinction prevents the 500 paths from differing only because of unrelated re-encoding noise.
+
+\subsection{Numerical stabilization}
+Positive scales use a softplus transform plus a minimum scale of 0.05. RV and IV use a positive floor before logarithms. The public loading decoder is bounded by $0.5\tanh(\cdot)$. The low-rank likelihood solves a small positive-definite system $I_q+B^\top D^{-2}B$. Gradient norms are clipped at 100. AdamW uses fixed weight decay and a fixed seed per block. These choices are implementation details with statistical consequences: without positive scales the likelihood is undefined; without loading bounds the public factor can absorb arbitrary residual variation; and without clipping the prior/posterior objective can become numerically unstable.
+
+\subsection{Reproduction commands}
+The following commands reproduce the engineering checks and the paper build:
+\begin{verbatim}
+python -m empirical_runs.world_model_v1.test_smoke
+python -m empirical_runs.world_model_v1.audit \\
+  empirical_runs/world_model_v1/outputs/dow30_serial/seed_20260721/block_00
+python3 .../compile_latex.py empirical_runs/world_model_v1/paper/main.tex
+\end{verbatim}
+The complete formal run was executed block by block using the serial runner. The results are stored under \texttt{outputs/dow30\_serial/seed\_20260721}; the paper tables are recomputed from the saved CSV summaries rather than copied from console output.
+
+\section{Additional Results by Horizon}
+Table~\ref{tab:fullmse} reports the complete MSE and QLIKE ranking for all included output models. It is included to make clear that the main claim is not based on a selected horizon. The cross-sectional-summary variants are retained because they are generated by the same evaluator and establish the benchmark ladder, but their labels are qualified as legacy summary models.
+\begin{table}[h]
+\centering
+\caption{Complete fixed-seed MSE and QLIKE results by horizon.}
+\label{tab:fullmse}
+\scriptsize
+\begin{tabular}{lrrrrrrrrrr}
+\toprule
+& \multicolumn{2}{c}{h=1} & \multicolumn{2}{c}{h=2} & \multicolumn{2}{c}{h=3} & \multicolumn{2}{c}{h=4} & \multicolumn{2}{c}{h=5}\\
+Model & MSE & QL & MSE & QL & MSE & QL & MSE & QL & MSE & QL\\
+\midrule
+Naive & 1.3884 & .001424 & 2.2742 & .002303 & 3.1838 & .003215 & 4.2044 & .004208 & 5.2715 & .005248\\
+HAR & 1.3435 & .001386 & 2.1834 & .002220 & 3.0052 & .003052 & 3.9473 & .003956 & 4.9249 & .004887\\
+HAR-IV & 1.3093 & .001369 & 2.1115 & .002180 & 2.8781 & .002973 & 3.7356 & .003815 & 4.5867 & .004642\\
+GHAR legacy & 1.3741 & .001421 & 2.2549 & .002300 & 3.1231 & .003184 & 4.1220 & .004154 & 5.1648 & .005167\\
+GHAR-IV legacy & 1.3176 & .001383 & 2.1323 & .002210 & 2.9183 & .003026 & 3.7981 & .003898 & 4.6783 & .004763\\
+AC-RSSM & .6501 & .000676 & 1.3113 & .001365 & 2.0370 & .002115 & 2.7285 & .002821 & 3.5204 & .003590\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The table also illustrates why QLIKE is reported alongside MSE. The loss scales increase with horizon, while the model ranking is not interpreted from any single metric alone. A future graph benchmark should be evaluated with the same loss pair and the same rolling origin set.
+
+\section{Failure-Mode Interpretation}
+\begin{table}[h]
+\centering
+\caption{Failure modes and diagnostic interpretation.}
+\begin{tabular}{p{0.29\linewidth}p{0.58\linewidth}}
+\toprule Failure mode & Interpretation\\
+\midrule
+Posterior good, prior poor & The inference network reconstructs observations but the deployable transition is misaligned.\\
+Point loss good, intervals wide & The model may be exploiting dispersion rather than learning conditional uncertainty.\\
+90\% coverage good, joint RMSE poor & Marginal calibration does not imply correct cross-sectional dependence.\\
+Mean path too smooth & The residual mean transition does not reproduce short-run shocks.\\
+Sample increments too volatile & Public/idiosyncratic noise scales are too large or poorly coupled to state.\\
+Anchor removal improves training only & The latent model may be relearning level persistence rather than adding innovation information.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The paper separates point forecasting from world-model evaluation because a financial world model is defined by four observable properties: loss, calibration, temporal dynamics, and joint structure. The fixed-seed run improves point loss, attains near-nominal 90\% marginal coverage, and exposes remaining temporal and cross-sectional errors.
+
+\section{Limitations}
+The evidence uses one seed and one Dow30 universe. The upstream RV and IV files are labelled as filled, and their original imputation is not reconstructed. The Gaussian low-rank observation law may underrepresent skewness, heavy tails, and jumps. Public factors are independent across forecast steps. The environment is passive and contains no actions, rewards, price feedback, or trading policy. A five-day horizon does not establish long-horizon financial simulation.
+
+\section{Conclusion}
+We develop a passive probabilistic world model for multi-asset realized-volatility paths. A generic causal anchor, instantiated here by HAR-IV, handles persistent level variation. Market-shared and asset-specific recurrent states model residual dynamics, while a low-rank public-shock layer defines explicit joint uncertainty. In the fixed-seed Dow30 rolling experiment, AC-RSSM improves QLIKE relative to HAR-IV at all five horizons. The same run shows that point accuracy, marginal calibration, temporal dynamics, and cross-sectional dependence are distinct evaluation targets. The resulting model is a hybrid forecaster with a deployable latent-state interface and a measurable joint-path error profile.
+
+\appendix
+\section{Configuration and Audit Contract}
+Table~\ref{tab:config} records the principal parameters used in the fixed-seed run. Values are included because a probabilistic world model is not reproducible from architecture names alone: context length, block boundary, anchor fitting rule, stochastic dimensions, and rollout sample count all affect the object being evaluated.
+\begin{table}[h]
+\centering
+\caption{Principal implementation configuration.}
+\label{tab:config}
+\small
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+Anchor type & HAR-IV (\texttt{HarIvAnchor})\\
+Context length & 44\\
+Horizon & 5\\
+Market deterministic/stochastic dimensions & 96 / 24\\
+Asset deterministic/stochastic dimensions & 96 / 24\\
+Asset embedding dimension & 24\\
+MLP hidden dimension & 128\\
+Public-shock dimension & 2\\
+Minimum observation scale & 0.05\\
+KL weight / free nats & 0.25 / 1.0\\
+Consistency weight & 0.05\\
+Public-loading penalty & 0.05\\
+Rollout discount & 0.9\\
+Learning rate / weight decay & $3\times10^{-4}$ / $10^{-5}$\\
+Gradient clipping & 100\\
+Optimization steps per block & 600\\
+Monte Carlo paths per origin & 500\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The audit contract is independent of the numerical ranking. A completed block must contain a checkpoint, training history, predictions, samples, diagnostics, a manifest, and a completed status file. Prediction rows must have unique keys $(o,i,h,m)$, where $o$ is origin index, $i$ ticker, $h$ horizon, and $m$ model. All targets and forecasts must be finite and non-negative; quantiles must satisfy $q_{.05}\leq q_{.25}\leq q_{.50}\leq q_{.75}\leq q_{.95}$; and each target date must be later than its origin date. The final seed-20260721 run satisfies these checks for all seven blocks.
+
+The tensor contract is equally explicit. Training inputs have shapes $[B,44,30,3]$, future observations have shape $[B,5,30,3]$, standardized anchors have shape $[B,5,30]$, residual samples have shape $[S,5,30]$, gates have shape $[S,5]$, and public loadings have shape $[S,5,30,2]$. These contracts make it possible to distinguish a failure of the latent model from a failure of data alignment, rollout leakage, or serialization.
+
+\section{Evaluation Metrics}
+This appendix defines the diagnostics used in the empirical section. Let $y_j$ be a realized RV target, $\widehat y_j$ the ensemble mean, and $x_{s,j}$ the $s$th sampled value. MSE and MAE are the usual averages of $(y_j-\widehat y_j)^2$ and $|y_j-\widehat y_j|$, while QLIKE is defined in Section 2. These three losses answer different questions: MSE is sensitive to scale and large observations, MAE is linear in the error magnitude, and QLIKE evaluates a positive multiplicative forecast.
+
+For an ensemble of size $S$, the empirical CRPS is
+\begin{equation}
+ \operatorname{CRPS}_j=\frac1S\sum_{s=1}^{S}|x_{s,j}-y_j|-\frac{1}{2S^2}\sum_{s=1}^{S}\sum_{s'=1}^{S}|x_{s,j}-x_{s',j}|.
+\end{equation}
+The implementation evaluates the second term using sorted samples, avoiding a quadratic pairwise array. For a central $(1-\alpha)$ interval $[L_j,U_j]$, coverage is the average of $\mathbf1\{L_j\leq y_j\leq U_j\}$ and width is $U_j-L_j$. The Winkler score is
+\begin{equation}
+ W_{\alpha,j}=(U_j-L_j)+\frac{2}{\alpha}(L_j-y_j)\mathbf1\{y_j<L_j\}+\frac{2}{\alpha}(y_j-U_j)\mathbf1\{y_j>U_j\}.
+\end{equation}
+It penalizes both wide intervals and misses. Rank PIT is the fraction of ensemble members below the observation, with half weight assigned to ties. A calibrated continuous predictive distribution has a uniform PIT, so its mean is $1/2$ and variance is $1/12$; finite ensembles and dependence across observations prevent direct use of these moments as a complete calibration test.
+
+Temporal path diagnostics are calculated on $\Delta\widehat y_{t,h}=\widehat y_{t,h+1}-\widehat y_{t,h}$ and the corresponding realized increments. We report correlation, standard deviation, the predicted-to-realized standard-deviation ratio, and lag-one correlation of sampled increments. The cross-sectional correlation diagnostic compares asset correlation matrices calculated across the five forecast steps at each origin. With only five steps, this object is noisy; it is used as a stress diagnostic rather than a consistent covariance estimator.
+
+The common-extreme event is defined from the cross-sectional mean RV. Let $c$ be the empirical 90th percentile of realized market-average targets. The realized event is $e_{t,h}=\mathbf1\{N^{-1}\sum_i y_{i,t,h}\geq c\}$, and the forecast probability is the fraction of sampled paths whose market average exceeds $c$. The Brier score averages $(\widehat p_{t,h}-e_{t,h})^2$. This metric uses the joint sample and cannot be recovered from point forecasts alone.
+
+\section{Conditions for Replacing the Anchor}
+The generic anchor interface is intentionally narrower than a general forecasting API. An admissible anchor must produce a positive direct forecast for every asset and horizon, use only the block information set, expose a fixed fit/predict boundary, and return the same $H\times N$ shape as HAR-IV. Its coefficients or network weights must be frozen throughout a test block. Any feature normalization used by the anchor must be fitted before the block boundary.
+
+Replacing HAR-IV with GHAR-IV, a factor model, or a neural point forecaster changes the residual target in every training tuple. The correct comparison therefore requires four steps: refit the new anchor, rebuild the complete anchor cube, retrain AC-RSSM from initialization, and evaluate both the new anchor and its associated hybrid on identical origins. It is invalid to attach a previously trained residual model to a stronger anchor after observing test performance.
+
+A useful anchor should also remain interpretable as a level component. If an unrestricted neural anchor already learns stochastic residual dynamics and cross-asset covariance, the decomposition becomes difficult to identify: improvements or failures can no longer be assigned to the anchor or the world-model component. HAR-IV is used in the first study because it is strong enough to capture persistence and IV information while remaining sufficiently transparent for this decomposition.
+
+\clearpage
+
+\begin{thebibliography}{99}
+\bibitem{andersen2003} Andersen, T. G., Bollerslev, T., Diebold, F. X., and Labys, P. (2003). Modeling and forecasting realized volatility. \emph{Econometrica}, 71(2), 579--625.\href{https://doi.org/10.1111/1468-0262.00418}{ DOI}.
+\bibitem{corsi2009} Corsi, F. (2009). A simple approximate long-memory model of realized volatility. \emph{Journal of Financial Econometrics}, 7(2), 174--196.\href{https://doi.org/10.1093/jjfinec/nbp001}{ DOI}.
+\bibitem{christensen1998} Christensen, B. J., and Prabhala, N. R. (1998). The relation between implied and realized volatility. \emph{Journal of Financial Economics}, 50(2), 125--150.\href{https://doi.org/10.1016/S0304-405X(98)00034-8}{ DOI}.
+\bibitem{patton2011} Patton, A. J. (2011). Volatility forecast comparison using imperfect volatility proxies. \emph{Journal of Econometrics}, 160(1), 246--256.\href{https://doi.org/10.1016/j.jeconom.2010.03.034}{ DOI}.
+\bibitem{diebold1995} Diebold, F. X., and Mariano, R. S. (1995). Comparing predictive accuracy. \emph{Journal of Business and Economic Statistics}, 13(3), 253--263.\href{https://doi.org/10.1080/07350015.1995.10524599}{ DOI}.
+\bibitem{hansen2011} Hansen, P. R., Lunde, A., and Nason, J. M. (2011). The model confidence set. \emph{Econometrica}, 79(2), 453--497.\href{https://doi.org/10.3982/ECTA5771}{ DOI}.
+\bibitem{zhang2025} Zhang, C., Pu, X., Cucuringu, M., and Dong, X. (2025). Forecasting realized volatility with spillover effects: Perspectives from graph neural networks. \emph{International Journal of Forecasting}, 41, 377--397.\href{https://doi.org/10.1016/j.ijforecast.2024.09.002}{ DOI}.
+\bibitem{zhangcommon2024} Zhang, C., Zhang, Y., Cucuringu, M., and Qian, Z. (2024). Volatility forecasting with machine learning and intraday commonality. \emph{Journal of Financial Econometrics}, 22(2), 492--530.\href{https://arxiv.org/abs/2202.08962}{ arXiv}.
+\bibitem{ha2018} Ha, D., and Schmidhuber, J. (2018). World models. arXiv:1803.10122.\href{https://arxiv.org/abs/1803.10122}{ arXiv}.
+\bibitem{planet2019} Hafner, D., Lillicrap, T., Fischer, I., Villegas, R., Ha, D., and Davidson, J. (2019). Learning latent dynamics for planning from pixels. \emph{ICML}.\href{https://arxiv.org/abs/1811.04551}{ arXiv}.
+\bibitem{hafner2019} Hafner, D., Lillicrap, T., Ba, J., and Norouzi, M. (2019). Dream to control: Learning behaviors by latent imagination. \emph{ICLR}.\href{https://arxiv.org/abs/1912.01603}{ arXiv}.
+\bibitem{hafner2025} Hafner, D., Pasukonis, J., Ba, J., and Lillicrap, T. (2025). Mastering diverse domains through world models. \emph{Nature}, 640, 647--653.\href{https://doi.org/10.1038/s41586-025-08744-2}{ DOI}.
+\bibitem{doerr2018} Doerr, A., Daniel, C., Schiegg, M., Duy, N.-T., Schaal, S., Toussaint, M., and Trimpe, S. (2018). Probabilistic recurrent state-space models. \emph{ICML}, 80, 1280--1289.\href{https://proceedings.mlr.press/v80/doerr18a.html}{ PMLR}.
+\bibitem{zhou2023} Zhou, L., Poli, M., Xu, W., Massaroli, S., and Ermon, S. (2023). Deep latent state space models for time-series generation. \emph{ICML}, 202, 42625--42643.\href{https://proceedings.mlr.press/v202/zhou23i.html}{ PMLR}.
+\bibitem{wang2019} Wang, Y., Smola, A., Maddix, D., Gasthaus, J., Foster, D., and Januschowski, T. (2019). Deep factors for forecasting. \emph{ICML}, 97, 6607--6617.\href{https://proceedings.mlr.press/v97/wang19k.html}{ PMLR}.
+\bibitem{salinas2020} Salinas, D., Flunkert, V., Gasthaus, J., and Januschowski, T. (2020). DeepAR: Probabilistic forecasting with autoregressive recurrent networks. \emph{International Journal of Forecasting}, 36(3), 1181--1191.\href{https://doi.org/10.1016/j.ijforecast.2019.07.001}{ DOI}.
+\bibitem{wiese2020} Wiese, M., Knobloch, R., Korn, R., and Kretschmer, P. (2020). Quant GANs: Deep generation of financial time series. \emph{Quantitative Finance}, 20(9), 1411--1426.\href{https://arxiv.org/abs/1907.06673}{ arXiv}.
+\bibitem{cont2025} Cont, R., Cucuringu, M., Xu, R., and Zhang, C. (2025). Tail-GAN: Learning to simulate tail risk scenarios. \emph{Management Science}, 72(4), 2917--2936.\href{https://doi.org/10.1287/mnsc.2023.00936}{ DOI}.
+\bibitem{lim2026} Lim, Y. W. (2026). Latent state-space smooth transition models for realized volatility forecasting. SSRN working paper.\href{https://ssrn.com/abstract=6457278}{ SSRN}.
+\end{thebibliography}
+\end{document}

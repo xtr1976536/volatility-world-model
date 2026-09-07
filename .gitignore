@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.DS_Store
+outputs/*/block_*/
+outputs/*/seed_*/block_*/
+outputs/**/checkpoint.pt
+outputs/**/*.npz
+paper/build/*.aux
+paper/build/*.fdb_latexmk
+paper/build/*.fls
+paper/build/*.log
+paper/build/*.out
+paper/build/*.synctex.gz
+paper/build/*.xdv
+paper/render*/
