@@ -5,10 +5,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "outputs" / "dow30_serial" / "seed_20260721"
 FIG = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent.parent))
+from empirical_runs.world_model_v1.metrics import (probabilistic_metrics, path_metrics,
+    cross_sectional_corr_error, common_extreme_event_score)
 
 COLORS = {
     "Naive": "#8c8c8c", "HAR": "#7b9acc", "HAR-IV": "#496a8f",
@@ -37,6 +41,13 @@ def read_block_diagnostics():
     return pd.concat([pd.read_csv(path) for path in files], ignore_index=True)
 
 
+def read_global_samples():
+    bundles = [np.load(path) for path in sorted(OUT.glob("block_*/samples_all.npz"))]
+    samples = np.concatenate([bundle["hybrid"] for bundle in bundles], axis=0)
+    targets = np.concatenate([bundle["target"] for bundle in bundles], axis=0)
+    return samples, targets
+
+
 def qlike_figure():
     df = pd.read_csv(OUT / "summary.csv")
     fig, ax = plt.subplots(figsize=(6.8, 3.4))
@@ -53,10 +64,12 @@ def qlike_figure():
 
 
 def probabilistic_figure():
-    df = read_block_diagnostics()
-    g = df[(df.model == "Hybrid-RSSM") & (df.horizon != "path")].copy()
-    g["horizon"] = g["horizon"].astype(int)
-    g = g.groupby("horizon", as_index=False).mean(numeric_only=True).sort_values("horizon")
+    samples, targets = read_global_samples()
+    rows = []
+    for h in range(targets.shape[1]):
+        rows.append({"horizon": h + 1, **probabilistic_metrics(
+            samples[:, :, h, :].transpose(1, 0, 2), targets[:, h, :])})
+    g = pd.DataFrame(rows)
     fig, axes = plt.subplots(2, 2, figsize=(6.8, 5.0), sharex=True)
     specs = [("CRPS", "CRPS", "#1f6f78"), ("coverage90", "90% coverage", "#496a8f"),
              ("coverage50", "50% coverage", "#b28c60"), ("width90", "90% interval width", "#7f6040")]
@@ -73,9 +86,10 @@ def probabilistic_figure():
 
 
 def path_figure():
-    df = read_block_diagnostics()
-    path = df[df.horizon.astype(str) == "path"].copy()
-    path = path.groupby("model", as_index=False).mean(numeric_only=True)
+    samples, targets = read_global_samples()
+    path = path_metrics(samples.mean(axis=1), samples, targets)
+    path.update({"cross_sectional_corr_rmse": cross_sectional_corr_error(samples.mean(axis=1), targets)})
+    path = pd.DataFrame([{"model": "Hybrid-RSSM", **path}])
     metrics = [("mean_increment_corr", "Mean-path increment correlation"),
                ("increment_sd_ratio", "Mean-path increment SD ratio"),
                ("sample_increment_sd", "Sample-path increment SD"),
@@ -135,6 +149,23 @@ def extreme_figure():
     save(fig, "fig5_common_extreme_events")
 
 
+def write_global_diagnostics():
+    samples, targets = read_global_samples()
+    rows = []
+    for h in range(targets.shape[1]):
+        metrics = probabilistic_metrics(samples[:, :, h, :].transpose(1, 0, 2), targets[:, h, :])
+        rows.append({"model": "Hybrid-RSSM", "horizon": h + 1,
+                     **{k: float(v) for k, v in metrics.items() if np.isscalar(v)}})
+    path = path_metrics(samples.mean(axis=1), samples, targets)
+    path.update({"model": "Hybrid-RSSM", "horizon": "path",
+                 "cross_sectional_corr_rmse": cross_sectional_corr_error(samples.mean(axis=1), targets),
+                 **common_extreme_event_score(samples, targets)})
+    rows.append(path)
+    out = ROOT / "results" / "dow30_serial" / "global_diagnostics.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(out, index=False)
+
+
 if __name__ == "__main__":
     FIG.mkdir(parents=True, exist_ok=True)
     qlike_figure()
@@ -142,3 +173,4 @@ if __name__ == "__main__":
     path_figure()
     training_figure()
     extreme_figure()
+    write_global_diagnostics()
