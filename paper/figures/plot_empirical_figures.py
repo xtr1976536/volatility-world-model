@@ -108,7 +108,7 @@ def path_figure():
     path = pd.DataFrame(records)
     metrics = [("mean_increment_corr", "Mean-path increment correlation"),
                ("increment_sd_ratio", "Mean-path increment SD ratio"),
-               ("sample_increment_sd", "Sample-path increment SD"),
+               ("sample_increment_sd", "Sample-path increment SD (AC-RSSM)"),
                ("cross_sectional_corr_rmse", "Cross-sectional correlation RMSE")]
     fig, axes = plt.subplots(2, 2, figsize=(6.8, 4.8))
     for ax, (col, label) in zip(axes.flat, metrics):
