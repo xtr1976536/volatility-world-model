@@ -20,8 +20,9 @@ The audit compares `paper/main.tex`, the implementation under this package, and 
 
 ## Corrections made in this review
 
-- Added author and contact metadata and a repository link placeholder to the manuscript.
-- Added five empirical figures generated from saved result files and a figure catalog.
+- Added author and contact metadata and the public repository link to the manuscript.
+- Removed all empirical figures from the manuscript at the author's request; the
+  plotting script remains outside the manuscript for a later redesign.
 - Removed process-oriented and defensive wording from the introduction and discussion.
 - Added explicit benchmark-label qualification: current GHAR/GHAR-IV outputs are cross-sectional-summary models, not a graph-adjacency reimplementation.
 - Added the corrected `device: auto` resolution in the evaluator.
