@@ -16,3 +16,14 @@ world-model improvement.
 
 The pilot is retained separately and is not merged with the audited
 single-seed baseline results.
+
+## 600-step confirmation
+
+The same first-block configuration was trained for 600 steps. The run passed
+the audit and produced finite predictions. Hybrid-RSSM QLIKE was 0.000568,
+0.000768, 0.001045, 0.001605, and 0.002888 at horizons 1--5. The model did
+not establish a point-forecast advantage over the corrected HAR benchmarks.
+The mean-path increment SD ratio was 0.424, which is closer to the realized
+ratio than the earlier pilot, but the probability and point-loss criteria did
+not improve jointly. The full observation head therefore remains a diagnostic
+branch rather than the selected v2 architecture.

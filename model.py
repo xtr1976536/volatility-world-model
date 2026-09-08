@@ -146,7 +146,8 @@ class DualStateRSSM(nn.Module):
             "za": torch.zeros(b, self.n_assets, self.cfg.asset_stochastic_dim, device=device),
         }
         for t in range(context.shape[1]):
-            state = self._context_step(state, context[:, t], deterministic)
+            transitioned, _ = self._prior_step(state, deterministic)
+            state, _ = self._posterior_step(transitioned, context[:, t], deterministic)
         return state
 
     def _prior_step(self, state: Dict[str, Tensor], deterministic: bool = False) -> tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -202,7 +203,7 @@ class DualStateRSSM(nn.Module):
         mu, sd = _normal_params(self.observation_decoder(features), self.cfg.min_scale)
         return mu, sd
 
-    def _posterior_step(self, transitioned: Dict[str, Tensor], obs: Tensor) -> tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def _posterior_step(self, transitioned: Dict[str, Tensor], obs: Tensor, deterministic: bool = False) -> tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         hm, ha = transitioned["hm"], transitioned["ha"]
         b = obs.shape[0]
         mf = market_features(obs[:, None]).squeeze(1)
@@ -213,8 +214,8 @@ class DualStateRSSM(nn.Module):
         hm_a = hm[:, None, :].expand(-1, self.n_assets, -1)
         q_a_emb = self.asset_obs_encoder(torch.cat([obs, hm_a], dim=-1))
         q_a_mu, q_a_sd = _normal_params(self.asset_post(torch.cat([ha, q_a_emb, hm_a], dim=-1)), self.cfg.min_scale)
-        q_state = {"hm": hm, "zm": q_m_mu + q_m_sd * torch.randn_like(q_m_mu),
-                   "ha": ha, "za": q_a_mu + q_a_sd * torch.randn_like(q_a_mu)}
+        q_state = {"hm": hm, "zm": _sample(q_m_mu, q_m_sd, deterministic),
+                   "ha": ha, "za": _sample(q_a_mu, q_a_sd, deterministic)}
         return q_state, {"q_m_mu": q_m_mu, "q_m_sd": q_m_sd, "q_a_mu": q_a_mu, "q_a_sd": q_a_sd}
 
     def loss(self, context: Tensor, future: Tensor, anchor: Tensor) -> tuple[Tensor, dict[str, Tensor]]:

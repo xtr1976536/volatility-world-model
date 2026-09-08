@@ -102,7 +102,7 @@ class HarIvAnchor(AnchorForecaster):
         out = []
         for beta in self.betas:
             if beta is None or origin < 22:
-                value = np.maximum(panel.rv[origin - 1], EPS)
+                value = np.maximum(panel.rv[origin], EPS)
             else:
                 x = np.column_stack([np.ones(panel.n_assets), _har_design(panel.rv, panel.iv, origin, True, False)])
                 value = np.maximum(np.sum(x * beta.T, axis=1), EPS)
@@ -232,11 +232,11 @@ def make_blocks(first_test: int, last_test: int, block_size: int = 22) -> list[B
 def _har_design(rv: np.ndarray, iv: np.ndarray, origin: int, use_iv: bool, cross_section: bool) -> np.ndarray:
     if origin < 22:
         raise ValueError("HAR design needs 22 historical observations")
-    x = [rv[origin - 1], rv[origin - 5:origin].mean(axis=0), rv[origin - 22:origin - 5].mean(axis=0)]
+    x = [rv[origin], rv[origin - 4:origin + 1].mean(axis=0), rv[origin - 21:origin - 4].mean(axis=0)]
     if use_iv:
-        x.append(iv[origin - 1])
+        x.append(iv[origin])
     if cross_section:
-        market = rv[origin - 1]
+        market = rv[origin]
         x.extend([np.full(rv.shape[1], market.mean()), np.full(rv.shape[1], market.std())])
     return np.stack(x, axis=1)
 

@@ -85,3 +85,7 @@ pilot is diagnostic only: it passed the tensor/file audit but is not used to
 replace the audited Dow30 result. The next experiment will separate the RV
 primary likelihood from auxiliary observation reconstruction before any full
 rolling run.
+
+The 600-step confirmation is reported in `V2_PILOT.md`; it remains a
+diagnostic branch because point loss and probabilistic path criteria did not
+improve jointly.
