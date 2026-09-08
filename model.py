@@ -77,6 +77,7 @@ class RSSMConfig:
     min_scale: float = 0.05
     public_shock_dim: int = 2
     public_shock_scale: float = 0.05
+    observation_loss_weight: float = 0.25
 
 
 class DualStateRSSM(nn.Module):
@@ -106,6 +107,9 @@ class DualStateRSSM(nn.Module):
         self.asset_post = _mlp(ad + hd + md, hd, 2 * ass)
         state_dim = md + ms + ad + ass + ae
         self.innovation_decoder = _mlp(state_dim, hd, 2)
+        # Standard world-model observation head: prior states must also
+        # explain the future observed feature vector, not only the RV residual.
+        self.observation_decoder = _mlp(state_dim, hd, 2 * f)
         self.public_loading_decoder = _mlp(state_dim, hd, cfg.public_shock_dim)
         self.gate_decoder = nn.Sequential(nn.Linear(md + ms, hd), nn.SiLU(), nn.Linear(hd, 1))
 
@@ -188,6 +192,16 @@ class DualStateRSSM(nn.Module):
         loadings = torch.tanh(self.public_loading_decoder(features)) * 0.5
         return gate * mu.squeeze(-1), sd.squeeze(-1), loadings, gate.squeeze(-1)
 
+    def _decode_observation(self, state: Dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+        hm, zm, ha, za = state["hm"], state["zm"], state["ha"], state["za"]
+        batch = hm.shape[0]
+        ids = self._asset_ids(batch, hm.device)
+        emb = self.asset_embedding(ids)
+        hm_a = hm[:, None, :].expand(-1, self.n_assets, -1)
+        features = torch.cat([hm_a, zm[:, None, :].expand(-1, self.n_assets, -1), ha, za, emb], dim=-1)
+        mu, sd = _normal_params(self.observation_decoder(features), self.cfg.min_scale)
+        return mu, sd
+
     def _posterior_step(self, transitioned: Dict[str, Tensor], obs: Tensor) -> tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         hm, ha = transitioned["hm"], transitioned["ha"]
         b = obs.shape[0]
@@ -224,10 +238,13 @@ class DualStateRSSM(nn.Module):
         gaps = []
         gates = []
         loading_penalty = torch.zeros((), device=context.device)
+        observation_nll = torch.zeros((), device=context.device)
         for step in range(h):
             weight = self.cfg.rollout_gamma ** step
             state_free, free_out = self._prior_step(state_free)
             free_nll = free_nll + weight * _low_rank_gaussian_nll(target[:, step], free_out["mu"], free_out["sd"], free_out["loadings"]).mean()
+            obs_mu, obs_sd = self._decode_observation(state_free)
+            observation_nll = observation_nll + weight * (0.5 * (((future[:, step] - obs_mu) / obs_sd).square() + 2.0 * torch.log(obs_sd))).mean()
             if free_out["loadings"].shape[-1] > 0:
                 loading_penalty = loading_penalty + weight * free_out["loadings"].square().mean()
             prior_teacher, prior_out = self._prior_step(state_teacher)
@@ -245,17 +262,19 @@ class DualStateRSSM(nn.Module):
             gaps.append((post_out["q_m_mu"] - prior_out["p_m_mu"]).abs().mean() + (post_out["q_a_mu"] - prior_out["p_a_mu"]).abs().mean())
             gates.append(prior_out["gate"].mean())
         denom = sum(self.cfg.rollout_gamma ** i for i in range(h))
-        free_nll, teacher_nll, market_kl, asset_kl, consistency = (x / denom for x in (free_nll, teacher_nll, market_kl, asset_kl, consistency))
+        free_nll, teacher_nll, market_kl, asset_kl, consistency, observation_nll = (x / denom for x in (free_nll, teacher_nll, market_kl, asset_kl, consistency, observation_nll))
         kl_free = torch.clamp(market_kl + asset_kl, min=self.cfg.free_nats)
         loading_penalty = loading_penalty / denom
         total = (free_nll + 0.5 * teacher_nll + self.cfg.kl_weight * kl_free
                  + self.cfg.consistency_weight * consistency
-                 + self.cfg.public_shock_scale * loading_penalty)
+                 + self.cfg.public_shock_scale * loading_penalty
+                 + self.cfg.observation_loss_weight * observation_nll)
         parts = {"loss": total.detach(), "prior_rollout_nll": free_nll.detach(), "teacher_nll": teacher_nll.detach(),
                  "market_kl": market_kl.detach(), "asset_kl": asset_kl.detach(),
                  "consistency": consistency.detach(), "latent_gap": torch.stack(gaps).mean().detach(),
                  "gate_mean": torch.stack(gates).mean().detach(),
-                 "loading_penalty": loading_penalty.detach()}
+                 "loading_penalty": loading_penalty.detach(),
+                 "observation_nll": observation_nll.detach()}
         return total, parts
 
     @torch.no_grad()

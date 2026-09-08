@@ -37,6 +37,7 @@ def make_model(n_assets: int, config: dict, device: torch.device) -> DualStateRS
         rollout_gamma=float(config["rollout_gamma"]),
         public_shock_dim=int(config.get("public_shock_dim", 2)),
         public_shock_scale=float(config.get("public_shock_scale", 0.05)),
+        observation_loss_weight=float(config.get("observation_loss_weight", 0.25)),
     )
     return DualStateRSSM(cfg).to(device)
 
