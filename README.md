@@ -89,3 +89,7 @@ rolling run.
 The 600-step confirmation is reported in `V2_PILOT.md`; it remains a
 diagnostic branch because point loss and probabilistic path criteria did not
 improve jointly.
+
+The v2 paper draft is `paper/main_v2.tex`; its compiled PDF is
+`paper/build/main_v2.pdf`. It uses only the corrected v2 pilot evidence and
+does not reuse the earlier information-set result tables.

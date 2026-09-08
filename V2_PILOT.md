@@ -27,3 +27,7 @@ The mean-path increment SD ratio was 0.424, which is closer to the realized
 ratio than the earlier pilot, but the probability and point-loss criteria did
 not improve jointly. The full observation head therefore remains a diagnostic
 branch rather than the selected v2 architecture.
+
+The companion manuscript `paper/main_v2.tex` uses this confirmation as a
+pilot feasibility result and does not import the earlier non-unified result
+tables.
