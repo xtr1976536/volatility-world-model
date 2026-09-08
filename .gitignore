@@ -15,6 +15,7 @@ paper/build/*.xdv
 paper/render*/
 paper/final_render/
 paper/final_render_nofig/
+paper/v2_render/
 data/**/*.zip
 kaggle_dataset/
 kaggle_kernel/empirical_runs/
