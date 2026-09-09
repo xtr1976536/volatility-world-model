@@ -3,8 +3,9 @@
 This is an early-stage research prototype. I designed the initial modeling
 framework and evaluation protocol; implementation was developed with assistance
 from Codex/GPT. The manuscript is an early draft and the model is still being
-refined. The code and model parameters are public, while the purchased financial
-data are not redistributed.
+refined. The code and model parameters are public. The financial data are
+commercially licensed and may be subject to access and usage restrictions; this
+repository does not obtain or redistribute them.
 
 Reproducible implementation and paper for an anchor-conditioned recurrent
 state-space world model for probabilistic multi-asset realized-volatility
