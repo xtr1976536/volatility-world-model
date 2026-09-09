@@ -46,20 +46,26 @@ upstream provenance risk and are not treated as a causal audit.
 
 ## Local checks
 
+The repository is intentionally runnable from its top level.  The commands below
+use the files shipped in this repository (rather than the historical
+`empirical_runs/...` module path):
+
 ```bash
-python -m empirical_runs.world_model_v1.test_smoke
-python -m empirical_runs.world_model_v1.evaluate --config empirical_runs/world_model_v1/config_smoke.yaml
-python -m empirical_runs.world_model_v1.audit empirical_runs/world_model_v1/outputs/smoke
+python test_smoke.py
+python evaluate.py --config config_smoke.yaml
+python audit.py <output-directory>
 ```
 
 ## Formal run
 
 ```bash
-python -m empirical_runs.world_model_v1.evaluate \
-  --config empirical_runs/world_model_v1/config.yaml
-python -m empirical_runs.world_model_v1.audit \
-  empirical_runs/world_model_v1/outputs/dow30_formal
+python evaluate.py --config config.yaml
+python audit.py <output-directory>
 ```
+
+For a quick orientation, read `AUDIT_REPORT.md` before running the formal
+experiment.  It records the current data/protocol audit and separates the
+causal evaluation path from upstream provenance limitations.
 
 The output contains checkpoints and histories for each block, compressed
 Monte Carlo paths, `predictions.csv.gz`, `summary.csv`,
