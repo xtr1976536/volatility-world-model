@@ -1,61 +1,32 @@
 # Anchor-Conditioned Volatility World Model v1
 
-This is an early-stage research prototype. I designed the initial modeling
-framework and evaluation protocol; implementation was developed with assistance
-from Codex/GPT. The manuscript is an early draft and the model is still being
-refined. The code and model parameters are public. The financial data are
-commercially licensed and may be subject to access and usage restrictions; this
-repository does not obtain or redistribute them.
+This is an early-stage research prototype with public code and model parameters (financial data may be subject to access restrictions and are not provided in this repository). I designed the initial modeling framework and evaluation protocol; implementation was assisted by Codex/GPT. The manuscript is an early draft and the model is still being refined.
 
-Reproducible implementation and paper for an anchor-conditioned recurrent
-state-space world model for probabilistic multi-asset realized-volatility
-paths.
+**Repository:** https://github.com/xtr1976536/volatility-world-model
 
-Repository: https://github.com/xtr1976536/volatility-world-model
-
-This directory contains the reproducible Dow30 experiment for the paper
-`paper/main.tex`.  The model is a passive probabilistic latent-dynamics model,
-not an automated trading system.
+This directory holds the reproducible Dow30 experiment for our paper (`paper/main.tex`).
 
 ## Model
 
-For an origin `t`, a causal level anchor is estimated from the rolling
-information set. `HarIvAnchor` is the default used by the reported experiment;
-the `AnchorForecaster` interface permits a different causal level model only
-when residual targets and the RSSM are retrained together. The RSSM receives a 44-day context of standardized
-`log(RV)`, `log(IV)`, and clipped returns.  It maintains one market state and
-one state per asset.  The market deterministic state is shared by all assets;
-asset embeddings preserve heterogeneous responses.  Future observations are
-never supplied during imagination.
+At each time origin `t`, we estimate a causal level anchor from the rolling information set. The reported experiment uses `HarIvAnchor` as the default; you can plug in a different causal level model via the `AnchorForecaster` interface, but that requires retraining the residual targets and the RSSM together.
+
+The RSSM takes a 44‑day context of standardized `log(RV)`, `log(IV)`, and clipped returns. It maintains one market‑wide state and one state per asset. The market deterministic state is shared across assets, while asset embeddings capture heterogeneous responses. Future observations are never fed during rollout.
 
 The decoder predicts the standardized residual
 
 `log(RV[t+h]) - log(HAR-IV-anchor[t+h])`
 
-with a Gaussian mean and positive scale.  A learned market gate multiplies
-the innovation mean only.  The scale is not inflated by the gate.  Training
-uses a free-running prior NLL, teacher-forced NLL, KL balancing with free nats,
-posterior-to-prior consistency, and gradient clipping.
-The joint observation additionally uses a two-dimensional public shock and
-asset-specific noise. Setting `public_shock_dim: 0` gives the independent-noise
-ablation without changing the rest of the architecture.
+with a Gaussian mean and a positive scale. A learned market gate multiplies the innovation mean only; the scale is not gated. Training uses a free‑running prior NLL, teacher‑forced NLL, KL balancing with free nats, posterior‑to‑prior consistency, and gradient clipping. The joint observation also includes a two‑dimensional public shock and asset‑specific noise. Setting `public_shock_dim: 0` gives the independent‑noise ablation without affecting the rest of the architecture.
 
-## Data and protocol
+## Data and Protocol
 
-The included `data/dow30` directory is extracted from the previously audited
-Dow30 archive.  The formal defaults are 30 assets, 1,254 common dates,
-origins 1113--1248, blocks of 22 origins, five-day paths, 600 steps per
-block, one seed (`20260721`), and 500 samples per origin.  The exact protocol
-is in `config.yaml`; `manifest.json` records the data audit and code hash.
+The `data/dow30` directory is extracted from our previously audited Dow30 archive. The formal defaults are: 30 assets, 1,254 common dates, origins 1113–1248, blocks of 22 origins, five‑day paths, 600 steps per block, one seed (`20260721`), and 500 samples per origin. The exact protocol is in `config.yaml`; `manifest.json` records the data audit and code hash.
 
-Runtime filling is forward-only.  The existing `*_filled.csv` files are an
-upstream provenance risk and are not treated as a causal audit.
+Runtime filling is forward‑only. The existing `*_filled.csv` files are an upstream provenance risk and are not treated as a causal audit.
 
-## Local checks
+## Local Checks
 
-The repository is intentionally runnable from its top level.  The commands below
-use the files shipped in this repository (rather than the historical
-`empirical_runs/...` module path):
+You can run the repository directly from its top level. Use the files shipped here (not the historical `empirical_runs/...` module path):
 
 ```bash
 python test_smoke.py
@@ -63,46 +34,26 @@ python evaluate.py --config config_smoke.yaml
 python audit.py <output-directory>
 ```
 
-## Formal run
+## Formal Run
 
 ```bash
 python evaluate.py --config config.yaml
 python audit.py <output-directory>
 ```
 
-For a quick orientation, read `AUDIT_REPORT.md` before running the formal
-experiment.  It records the current data/protocol audit and separates the
-causal evaluation path from upstream provenance limitations.
+For a quick start, read `AUDIT_REPORT.md` before launching the full experiment. It summarises the current data/protocol audit and clearly separates the causal evaluation path from upstream provenance limitations.
 
-The output contains checkpoints and histories for each block, compressed
-Monte Carlo paths, `predictions.csv.gz`, `summary.csv`,
-`forecast_comparisons.csv`, `diagnostics.csv`, `manifest.json`, and progress
-files.  A failed run retains completed blocks and marks the manifest as
-failed.
+The output includes block‑wise checkpoints and histories, compressed Monte Carlo paths, `predictions.csv.gz`, `summary.csv`, `forecast_comparisons.csv`, `diagnostics.csv`, `manifest.json`, and progress files. If a run fails, completed blocks are retained and the manifest is marked as failed.
 
-## Paper and audited result
+## Paper and Audited Result
 
-The manuscript is `paper/main.tex`; the compiled review PDF is
-`paper/build/main.pdf`. Figures are intentionally excluded from the current
-manuscript and will be redrawn in a later pass. The plotting script and figure
-catalog remain as reproducibility scaffolding. The lightweight audited summary
-is under `results/dow30_serial/`; raw checkpoints and Monte Carlo arrays are
-excluded from Git history because they are large and are regenerated by the
-formal command.
+The manuscript is `paper/main.tex`; the compiled review PDF is `paper/build/main.pdf`. Figures are intentionally omitted from this draft and will be redrawn later. The plotting script and figure catalog remain as reproducibility scaffolding. The lightweight audited summary lives under `results/dow30_serial/`; raw checkpoints and Monte Carlo arrays are excluded from Git history (they are large and regenerated by the formal command).
 
-## v2 pilot
+## v2 Pilot
 
-`config_v2_pilot.yaml` and `outputs/v2_pilot/` record the first small
-experiment with a prior observation head for all three encoded features. The
-pilot is diagnostic only: it passed the tensor/file audit but is not used to
-replace the audited Dow30 result. The next experiment will separate the RV
-primary likelihood from auxiliary observation reconstruction before any full
-rolling run.
+`config_v2_pilot.yaml` and `outputs/v2_pilot/` contain the first small experiment with a prior observation head for all three encoded features. This pilot is an initial version—it passed the tensor/file audit but does not replace the audited Dow30 result. Our next experiment will separate the RV primary likelihood from auxiliary observation reconstruction before running a full rolling evaluation.
 
-The 600-step confirmation is reported in `V2_PILOT.md`; it remains a
-diagnostic branch because point loss and probabilistic path criteria did not
-improve jointly.
+The 600‑step confirmation is reported in `V2_PILOT.md`.
 
-The v2 paper draft is `paper/main_v2.tex`; its compiled PDF is
-`paper/build/main_v2.pdf`. It uses only the corrected v2 pilot evidence and
-does not reuse the earlier information-set result tables.
+The v2 paper draft is `paper/main_v2.tex`; its compiled PDF is `paper/build/main_v2.pdf`.
+
