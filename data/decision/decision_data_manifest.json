@@ -1,0 +1,27 @@
+{
+  "universe": "Dow30 fixed 30-asset pool",
+  "common_panel_dates": "2021-01-27 through 2026-01-23",
+  "observed_files": {
+    "returns": "../dow30/dow30_daily_returns_2021_2026.csv",
+    "rv": "../dow30/merged_rv_data_filled.csv",
+    "iv": "../dow30/merged_iv_data_filled.csv",
+    "short_rate": "fred_3m_tbill.csv",
+    "long_rate": "fred_10y_treasury.csv"
+  },
+  "coverage": {
+    "assets": 30,
+    "returns_rows": 1254,
+    "rv_rows": 1256,
+    "iv_rows": 1256,
+    "short_rate_rows": 1495,
+    "long_rate_rows": 1495
+  },
+  "missing_decision_fields": [
+    "adjusted_ohlcv",
+    "historical_bid_ask_spreads",
+    "borrow_costs",
+    "historical_dow_membership",
+    "order_book_depth"
+  ],
+  "source_note": "RV and IV files are upstream filled files; their original imputation process has not been independently audited. FRED rates are downloaded from the official FRED graph CSV endpoint."
+}

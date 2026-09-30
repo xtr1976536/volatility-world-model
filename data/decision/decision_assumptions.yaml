@@ -1,0 +1,23 @@
+environment: exogenous_market
+action:
+  type: daily_portfolio_weights
+  long_only: true
+  sum_weights: 1.0
+  max_asset_weight: 0.10
+  rebalance: daily
+reward:
+  gross_return: log_one_plus_portfolio_return
+  risk_penalty: predicted_portfolio_volatility
+  turnover_penalty: l1_weight_change
+  transaction_cost_bps_grid: [0, 5, 10, 25, 50]
+  risk_penalty_grid: [0.0, 0.1, 0.25, 0.5]
+data_status:
+  returns: observed_daily_panel
+  realized_volatility: observed_daily_panel
+  implied_volatility: observed_daily_panel
+  short_rate: fred_dtb3
+  long_rate: fred_dgs10
+  adjusted_ohlcv: missing_from_current_archive
+  bid_ask_spread: missing_from_current_archive
+  borrow_cost: missing_from_current_archive
+  historical_membership: fixed_dow30_pool_only
