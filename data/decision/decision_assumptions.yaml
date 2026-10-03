@@ -17,7 +17,8 @@ data_status:
   implied_volatility: observed_daily_panel
   short_rate: fred_dtb3
   long_rate: fred_dgs10
-  adjusted_ohlcv: missing_from_current_archive
+  adjusted_ohlcv: yahoo_finance_chart_api_download_2026_10_03
+  volume: yahoo_finance_chart_api_download_2026_10_03
   bid_ask_spread: missing_from_current_archive
   borrow_cost: missing_from_current_archive
   historical_membership: fixed_dow30_pool_only

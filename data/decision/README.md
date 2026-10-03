@@ -15,6 +15,9 @@ decision experiment built on the volatility world model.
   year, for a cash and excess-return benchmark.
 - `fred_10y_treasury.csv`: FRED DGS10 10-year Treasury constant-maturity
   rate, in percent per year, for a macro risk-state feature.
+- `ohlcv/*.csv`: Yahoo Finance chart API daily OHLCV and adjusted close for
+  the fixed 30-ticker pool, downloaded on 2026-10-03 and recorded in
+  `ohlcv/manifest.json`.
 
 ## Decision environment
 
@@ -24,8 +27,9 @@ change the Dow30 market transition. A daily action is a vector of portfolio
 weights. The first implementation should report gross and net portfolio
 returns separately and use explicit transaction-cost sensitivity.
 
-The source archive does not contain historical bid-ask spreads, borrow rates,
-order-book depth, or a survivorship-free historical Dow membership file. Those
+The current package now contains OHLCV and adjusted close for all 30 tickers.
+The source archive still lacks historical bid-ask spreads, borrow rates,
+order-book depth, and a survivorship-free historical Dow membership file. Those
 fields must be obtained from CRSP, Compustat, Bloomberg, Refinitiv, or a
 comparable licensed source before claiming implementation-grade execution or
 historical-universe results. The `decision_assumptions.yaml` file records the

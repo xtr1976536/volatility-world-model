@@ -1,0 +1,212 @@
+[
+  {
+    "ticker": "AAPL",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "AMGN",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "AMZN",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "AXP",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "BA",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "CAT",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "CRM",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "CSCO",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "CVX",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "DIS",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "DOW",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "GS",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "HD",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "HON",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "IBM",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "INTC",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "JNJ",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "JPM",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "KO",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "MCD",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "MMM",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "MRK",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "MSFT",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "NKE",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "PG",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "TRV",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "UNH",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "V",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "VZ",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  },
+  {
+    "ticker": "WMT",
+    "status": "ok",
+    "rows": 1443,
+    "start": "2020-12-31",
+    "end": "2026-09-30"
+  }
+]

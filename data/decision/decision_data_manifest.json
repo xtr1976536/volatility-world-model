@@ -6,7 +6,8 @@
     "rv": "../dow30/merged_rv_data_filled.csv",
     "iv": "../dow30/merged_iv_data_filled.csv",
     "short_rate": "fred_3m_tbill.csv",
-    "long_rate": "fred_10y_treasury.csv"
+    "long_rate": "fred_10y_treasury.csv",
+    "ohlcv": "ohlcv/{ticker}.csv"
   },
   "coverage": {
     "assets": 30,
@@ -14,10 +15,13 @@
     "rv_rows": 1256,
     "iv_rows": 1256,
     "short_rate_rows": 1495,
-    "long_rate_rows": 1495
+    "long_rate_rows": 1495,
+    "ohlcv_tickers": 30,
+    "ohlcv_rows_per_ticker": 1443,
+    "ohlcv_date_start": "2020-12-31",
+    "ohlcv_date_end": "2026-09-30"
   },
   "missing_decision_fields": [
-    "adjusted_ohlcv",
     "historical_bid_ask_spreads",
     "borrow_costs",
     "historical_dow_membership",
